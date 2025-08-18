@@ -13,9 +13,9 @@ $ echo 'initializing dynamic profile shell...'
 
 | WHO AM I | LIVE STATUS |
 |----------|-------------|
-| `> user:` wicked-eyes-on-you | `> last_updated:` 18/08/2025, 19:00:18 |
+| `> user:` wicked-eyes-on-you | `> last_updated:` 18/08/2025, 20:11:39 |
 | `> role:` IT student · builder · open source contributor | `> timezone:` IST (GMT+5:30) |
-| `> focus:` AI, Blockchain, Web Development, Cloud Native | `> last_commit:` 7 hours ago |
+| `> focus:` AI, Blockchain, Web Development, Cloud Native | `> last_commit:` 8 hours ago |
 | `> mood:` compiling chaos into clean output | `> response_time:` ~2-4 hours |
 | `> current_commit:` latest | `> status:` online |
 
@@ -25,12 +25,12 @@ $ echo 'initializing dynamic profile shell...'
 ```bash
 $ git status --porcelain --all-repos
 ## readme...origin/main
- A bug fixes
- M adding
- M Initial commit
+ M update
+ M new yml
+ A add new ymml
 
 ## cms...origin/main
- A adding files
+ M adding files
 
 ```
 
@@ -132,5 +132,5 @@ $ echo "Thanks for visiting! Don't forget to ⭐ star interesting repos!"
 
 ##
 <div align="center">
-<sub>Last updated: August 18th 2025, 7:00:18 pm IST | Commit: latest | Auto-generated every 6 hours</sub>
+<sub>Last updated: August 18th 2025, 8:11:39 pm IST | Commit: latest | Auto-generated every 6 hours</sub>
 </div>
