@@ -236,7 +236,7 @@ $ echo 'initializing dynamic profile shell...'
 
 | WHO AM I | LIVE STATUS |
 |----------|-------------|
-| \`> user:\` wicked-eyes-on-you | \`> last_updated:\` ${moment().utcOffset(330).format('DD/MM/YYYY, HH:mm:ss')} |
+| \`> user:\` wicked-eyes-on-you | \`> last_updated:\` ${moment().utcOffset(330).format('DD/MM/YYYY, hh:mm:ss')} |
 | \`> role:\` IT student · builder · open source contributor | \`> timezone:\` IST (GMT+5:30) |
 | \`> focus:\` AI, Blockchain, Web Development, Cloud Native | \`> last_commit:\` ${lastCommit} |
 | \`> mood:\` compiling chaos into clean output | \`> response_time:\` ~2-4 hours |
