@@ -10,8 +10,7 @@ const github = axios.create({
   headers: {
     'Authorization': `token ${GITHUB_TOKEN}`,
     'Accept': 'application/vnd.github.v3+json'
-  },
-  timeout: 10000 // 10 second timeout
+  }
 });
 
 async function getRecentCommits() {
@@ -29,10 +28,7 @@ async function getRecentCommits() {
 
         console.log('Processing commit:', event.created_at, '→', time, '→', repo);
 
-        // Better handling of empty commits array
-        const latestCommit = event.payload.commits && event.payload.commits.length > 0
-          ? event.payload.commits[event.payload.commits.length - 1]
-          : null;
+        const latestCommit = event.payload.commits[event.payload.commits.length - 1];
         const commitMessage = latestCommit?.message || 'Updated files';
         const truncatedMessage = commitMessage.length > 50 
           ? commitMessage.substring(0, 50) + '...' 
@@ -105,9 +101,7 @@ async function getLanguageStats() {
           languageStats[lang] = (languageStats[lang] || 0) + bytes;
           totalBytes += bytes;
         }
-      } catch (err) {
-        // Skip repos without language data
-      }
+      } catch (err) {}
     }
 
     if (totalBytes === 0) {
@@ -125,12 +119,10 @@ async function getLanguageStats() {
     return sortedLangs.map(lang => {
       const displayPercentage = Math.min(lang.percentage, 99.9);
 
-      // Better progress bar calculation - ensures exactly 20 characters
       const filled = Math.round(displayPercentage / 5);
-      const empty = 20 - filled;
-      const bar = '█'.repeat(Math.max(0, filled)) + '░'.repeat(Math.max(0, empty));
+      const empty = Math.max(0, 20 - filled);
+      const bar = '█'.repeat(filled) + '░'.repeat(empty);
 
-      // Ensure bar is exactly 25 characters total (20 + 5 spaces)
       const barWithSpaces = (bar + '     ').substring(0, 25);
 
       let percentageStr;
@@ -210,10 +202,7 @@ async function getRepoStatus() {
 
 async function generateReadme() {
   console.log('Starting README generation...');
-  validateEnvironment();
 
-  const startTime = Date.now();
-  
   const [recentCommits, lastCommit, languageStats, repoStatus, commitHash] = await Promise.all([
     getRecentCommits(),
     getLastCommitTime(),
@@ -221,6 +210,8 @@ async function generateReadme() {
     getRepoStatus(),
     getCommitHash()
   ]);
+
+  const currentTime = moment().utcOffset(330).format('DD/MM/YYYY, hh:mm:ss a');
 
   const gitStatusSection = repoStatus ? `
 ## LIVE REPOSITORY STATUS
@@ -288,7 +279,7 @@ $ cat ~/.bashrc | grep -A 20 "# SOCIAL CONNECTIONS"
 export GITHUB_USER="wicked-eyes-on-you"
 export LINKEDIN_URL="https://linkedin.com/in/wicked-eyes-on-you"  
 export WEBSITE_URL="https://wicked-eyes-on-you.me"
-export EMAIL="connect.wicked-eyes-on-you@gmail.com"
+export EMAIL="wicked-eyes-on-you@gmail.com"
 
 # CONNECTION STATUS
 export COLLABORATION_STATUS="OPEN"
@@ -300,7 +291,7 @@ $ netstat -an | grep LISTEN
 tcp4  0  0  github.com.443         ESTABLISHED
 tcp4  0  0  linkedin.com.443       ESTABLISHED
 tcp4  0  0  gmail.com.443          ESTABLISHED
-tcp4  0  0  localhost.3000         LISTENING    # Development server
+tcp4  0  0  localhost.3000         LISTENING
 \`\`\`
 
 ## COLLABORATION HUB
@@ -316,7 +307,7 @@ $ cat << EOF
 ┌─────────────────┬───────────────────────────────────────────────┐
 │ Field           │ Details                                       │
 ├─────────────────┼───────────────────────────────────────────────┤
-│ Quote           │ "Code is poetry — every commit tells a story" │
+│ Quote           │ Code is poetry — every commit tells a story.  │
 │ Collaboration   │ Open for innovative projects                  │
 │ Mentoring       │ Available for fellow developers               │
 │ Response Time   │ ~2–4 hours (IST business hours)               │
@@ -331,7 +322,7 @@ $ exit
 > goodbye!
 \`\`\`
 
-<div align="center">
+<div align="center" style="font-family: Consolas, 'Courier New', monospace;">
 
 \`\`\`bash
 $ echo "Thanks for visiting! Don't forget to ⭐ star interesting repos!"
@@ -341,19 +332,13 @@ $ echo "Thanks for visiting! Don't forget to ⭐ star interesting repos!"
 
 </div>
 
----
+##
 <div align="center">
 <sub>Last updated: ${moment().utcOffset(330).format('MMMM Do YYYY, h:mm:ss a')} IST | Commit: ${commitHash} | Auto-generated every 6 hours</sub>
 </div>`;
 
-  try {
-    fs.writeFileSync('README.md', readmeContent);
-    const duration = Date.now() - startTime;
-    console.log(`README.md updated successfully! (${duration}ms)`);
-  } catch (error) {
-    console.error('Error writing README.md:', error.message);
-  }
+  fs.writeFileSync('README.md', readmeContent);
+  console.log('README.md updated successfully!');
 }
 
-validateEnvironment();
 generateReadme().catch(console.error);
