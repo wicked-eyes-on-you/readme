@@ -6,36 +6,33 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - 'README.md'  # Avoid infinite loops
-      - '.github/workflows/**'
-  workflow_dispatch:
+      - 'README.md'
+  workflow_dispatch:  # Allows manual trigger
 
 jobs:
   update-readme:
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # Prevent hanging workflows
+    timeout-minutes: 10
 
     steps:
-      - name: Checkout repository
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 1  # Only fetch latest commit for performance
+          fetch-depth: 1
 
-      - name: Setup Node.js
+      - name: 📦 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"  # Use LTS version
-          # Remove cache since we don't have a lock file
+          node-version: "20"
 
-      - name: Install dependencies
+      - name: 🔧 Install dependencies
         run: |
-          # Create a simple package.json
+          # Create package.json
           cat > package.json << 'EOF'
           {
             "name": "readme-generator",
             "version": "1.0.0",
-            "description": "Dynamic README generator",
             "main": "update-readme.js",
             "dependencies": {
               "axios": "^1.6.0",
@@ -44,186 +41,62 @@ jobs:
           }
           EOF
           
-          # Install dependencies
+          # Install packages
           npm install
+          echo "✅ Dependencies installed"
 
-      - name: Check API Rate Limit
+      - name: 🚀 Generate dynamic README
         run: |
-          echo "🔍 Checking GitHub API rate limit..."
-          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-               -H "Accept: application/vnd.github.v3+json" \
-               https://api.github.com/rate_limit | jq '.rate'
-        continue-on-error: true
-
-      - name: Verify script exists
-        run: |
-          if [ -f ".github/scripts/update-readme.js" ]; then
-            echo "✅ Script found at .github/scripts/update-readme.js"
-            ls -la .github/scripts/
-          else
-            echo "❌ Script not found! Looking for files..."
-            find . -name "*.js" -type f
-            echo "Current directory structure:"
-            ls -la
-            echo "Creating script directory..."
-            mkdir -p .github/scripts
-            echo "Please ensure your script is located at .github/scripts/update-readme.js"
-            exit 1
-          fi
-
-      - name: Generate dynamic README
-        id: generate
-        run: |
-          echo "🚀 Starting README generation..."
+          echo "🎯 Current directory: $(pwd)"
+          echo "📁 Files in .github/scripts/:"
+          ls -la .github/scripts/
+          
+          echo "🚀 Running README generator..."
           cd .github/scripts
           node update-readme.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME: ${{ github.repository_owner }}
-        continue-on-error: true
 
-      - name: Check for changes
-        id: verify-changed-files
+      - name: 🔍 Check for changes
+        id: verify-changes
         run: |
-          if [ ! -f "README.md" ]; then
-            echo "❌ README.md was not generated!"
-            echo "changed=false" >> $GITHUB_OUTPUT
+          if [ -f "README.md" ]; then
+            echo "✅ README.md exists"
+            echo "📏 Size: $(wc -c < README.md) bytes"
+            
+            if git diff --quiet README.md; then
+              echo "ℹ️ No changes detected"
+              echo "changed=false" >> $GITHUB_OUTPUT
+            else
+              echo "🎉 Changes detected!"
+              echo "changed=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "❌ README.md not found!"
             exit 1
           fi
-          
-          if git diff --quiet README.md; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ No changes detected in README.md"
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "✅ Changes detected in README.md"
-          fi
 
-      - name: Show README changes (for debugging)
-        if: steps.verify-changed-files.outputs.changed == 'true'
-        run: |
-          echo "📋 README.md changes:"
-          git diff --no-color README.md | head -50
-
-      - name: Commit changes
-        if: steps.verify-changed-files.outputs.changed == 'true'
+      - name: 📤 Commit and push changes
+        if: steps.verify-changes.outputs.changed == 'true'
         run: |
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+          
           git add README.md
-          git commit -m "🤖 Auto-update dynamic README - $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          git commit -m "🤖 Auto-update README - $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
 
-      - name: Push changes
-        if: steps.verify-changed-files.outputs.changed == 'true'
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref }}
-
-      - name: Create issue on failure
-        if: failure() && steps.generate.outcome == 'failure'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = '🚨 Dynamic README Update Failed';
-            const body = `
-            ## Issue Details
-            
-            The automatic README update workflow has failed.
-            
-            **Workflow Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            **Branch:** ${{ github.ref_name }}
-            **Commit:** ${{ github.sha }}
-            **Triggered by:** ${{ github.event_name }}
-            **Timestamp:** ${new Date().toISOString()}
-            
-            ## Possible Causes
-            
-            - Script file not found at \`.github/scripts/update-readme.js\`
-            - API rate limit exceeded
-            - Network connectivity issues
-            - GitHub API temporary unavailability
-            - Script logic errors
-            
-            ## Next Steps
-            
-            1. Ensure the script is located at \`.github/scripts/update-readme.js\`
-            2. Check the workflow logs for specific error messages
-            3. Verify GitHub API status at https://www.githubstatus.com/
-            4. Consider running the workflow manually after some time
-            5. If the issue persists, review the script for potential bugs
-            
-            This issue will be automatically closed when the next successful update runs.
-            `;
-            
-            // Check if an issue already exists
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: 'automated,readme-update-failed'
-            });
-            
-            if (issues.length === 0) {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: title,
-                body: body,
-                labels: ['automated', 'readme-update-failed', 'bug']
-              });
-            } else {
-              console.log('An issue for README update failure already exists.');
-            }
-
-      - name: Close previous failure issues on success
-        if: success() && steps.verify-changed-files.outputs.changed == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            // Find and close any open failure issues
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: 'readme-update-failed'
-            });
-            
-            for (const issue of issues) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                body: '✅ README update is now working again. Closing this issue automatically.'
-              });
-              
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                state: 'closed'
-              });
-            }
-
-      - name: Workflow Summary
+      - name: ✅ Success summary
         if: always()
         run: |
-          echo "## 📊 Workflow Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎯 Workflow Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **README Changed:** ${{ steps.verify-changed-files.outputs.changed || 'unknown' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Changes:** ${{ steps.verify-changes.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
           
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ **README successfully updated!**" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "🎉 **README updated successfully!**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **README update failed.** Check the logs above for details." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### 🔧 Quick Fixes:" >> $GITHUB_STEP_SUMMARY
-            echo "1. Ensure script is at \`.github/scripts/update-readme.js\`" >> $GITHUB_STEP_SUMMARY
-            echo "2. Check repository permissions: Settings → Actions → General → Workflow permissions" >> $GITHUB_STEP_SUMMARY
-            echo "3. Verify GitHub token has necessary permissions" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Something went wrong. Check logs above.**" >> $GITHUB_STEP_SUMMARY
           fi
