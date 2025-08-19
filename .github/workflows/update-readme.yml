@@ -2,59 +2,181 @@ name: Update Dynamic README
 
 on:
   schedule:
-    # Runs every Sunday at 00:00 UTC (05:30 IST)
-    - cron: "0 0 * * 0"
+    - cron: "0 */6 * * *"  # Every 6 hours instead of weekly
   push:
     branches: [main]
+    paths-ignore:
+      - 'README.md'  # Avoid infinite loops
+      - '.github/workflows/**'
   workflow_dispatch:
 
 jobs:
   update-readme:
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # Prevent hanging workflows
 
     steps:
-      # Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1  # Only fetch latest commit for performance
 
-      # Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20"  # Use LTS version
+          cache: 'npm'
 
-      # Cache dependencies
-      - name: Cache npm
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      # Install dependencies
       - name: Install dependencies
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install axios moment
-          fi
+          npm init -y
+          npm install axios moment
 
-      # Generate dynamic README
+      - name: Check API Rate Limit
+        run: |
+          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               -H "Accept: application/vnd.github.v3+json" \
+               https://api.github.com/rate_limit
+        continue-on-error: true
+
       - name: Generate dynamic README
+        id: generate
         run: node .github/scripts/update-readme.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME: ${{ github.repository_owner }}
+        continue-on-error: true
 
-      # Commit and push changes
-      - name: Commit changes
+      - name: Check for changes
+        id: verify-changed-files
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          if git diff --quiet README.md; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes detected in README.md"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in README.md"
+          fi
+
+      - name: Show README changes (for debugging)
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        run: |
+          echo "📋 README.md changes:"
+          git diff --no-color README.md | head -50
+
+      - name: Commit changes
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git add README.md
-          git diff --staged --quiet || git commit -m "chore: update dynamic README [$(date -u +'%Y-%m-%d %H:%M:%S UTC')]"
-          git push
+          git commit -m "🤖 Auto-update dynamic README - $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+      - name: Push changes
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+
+      - name: Create issue on failure
+        if: failure() && steps.generate.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '🚨 Dynamic README Update Failed';
+            const body = `
+            ## Issue Details
+            
+            The automatic README update workflow has failed.
+            
+            **Workflow Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            **Branch:** ${{ github.ref_name }}
+            **Commit:** ${{ github.sha }}
+            **Triggered by:** ${{ github.event_name }}
+            **Timestamp:** ${new Date().toISOString()}
+            
+            ## Possible Causes
+            
+            - API rate limit exceeded
+            - Network connectivity issues
+            - GitHub API temporary unavailability
+            - Script logic errors
+            
+            ## Next Steps
+            
+            1. Check the workflow logs for specific error messages
+            2. Verify GitHub API status at https://www.githubstatus.com/
+            3. Consider running the workflow manually after some time
+            4. If the issue persists, review the script for potential bugs
+            
+            This issue will be automatically closed when the next successful update runs.
+            `;
+            
+            // Check if an issue already exists
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'automated,readme-update-failed'
+            });
+            
+            if (issues.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['automated', 'readme-update-failed', 'bug']
+              });
+            } else {
+              console.log('An issue for README update failure already exists.');
+            }
+
+      - name: Close previous failure issues on success
+        if: success() && steps.verify-changed-files.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Find and close any open failure issues
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'readme-update-failed'
+            });
+            
+            for (const issue of issues) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: '✅ README update is now working again. Closing this issue automatically.'
+              });
+              
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed'
+              });
+            }
+
+      - name: Workflow Summary
+        if: always()
+        run: |
+          echo "## 📊 Workflow Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **README Changed:** ${{ steps.verify-changed-files.outputs.changed || 'unknown' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ **README successfully updated!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **README update failed.** Check the logs above for details." >> $GITHUB_STEP_SUMMARY
+          fi
