@@ -13,23 +13,13 @@ $ echo 'initializing dynamic profile shell...'
 
 | WHO AM I | LIVE STATUS |
 |----------|-------------|
-| `> user:` wicked-eyes-on-you | `> last_updated:` 20/08/2025, 12:53:11 |
+| `> user:` wicked-eyes-on-you | `> last_updated:` 20/08/2025, 12:56:44 |
 | `> role:` IT student · builder · open source contributor | `> timezone:` IST (GMT+5:30) |
 | `> focus:` AI, Blockchain, Web Development, Cloud Native | `> last_commit:` 1 day ago |
 | `> mood:` compiling chaos into clean output | `> response_time:` ~2-4 hours |
 | `> current_commit:` latest | `> status:` online |
 
 
-## LIVE REPOSITORY STATUS
-
-```bash
-$ git status --porcelain --all-repos
-## readme...origin/main
- M add prvious version
- M 🤖 Auto-update README - 2025-08-20 06:19...
- A 🤖 Auto-update README - 2025-08-20 00:59...
-
-```
 
 ## REAL-TIME ACTIVITY MONITOR
 
@@ -134,5 +124,5 @@ $ echo "Thanks for visiting! Don't forget to ⭐ star interesting repos!"
 
 ##
 <div align="center">
-<sub>Last updated: August 20th 2025, 12:53:11 pm IST | Commit: latest | Auto-generated every 6 hours</sub>
+<sub>Last updated: August 20th 2025, 12:56:44 pm IST | Commit: latest | Auto-generated every 6 hours</sub>
 </div>
