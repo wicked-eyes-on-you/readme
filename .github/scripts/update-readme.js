@@ -6,6 +6,8 @@ const moment = require('moment');
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const USERNAME = process.env.GITHUB_USERNAME || 'wicked-eyes-on-you';
 
+console.log('Starting README generation for user:', USERNAME);
+
 // Configure axios with better error handling and timeouts
 const github = axios.create({
   baseURL: 'https://api.github.com',
@@ -17,11 +19,10 @@ const github = axios.create({
   timeout: 10000
 });
 
-// Cache for API responses to avoid redundant calls
+// Simple cache implementation
 const cache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Utility function to make cached API calls
 async function cachedApiCall(key, apiCall) {
   const cached = cache.get(key);
   const now = Date.now();
@@ -35,7 +36,6 @@ async function cachedApiCall(key, apiCall) {
     cache.set(key, { data, timestamp: now });
     return data;
   } catch (error) {
-    // Return cached data even if stale when API fails
     if (cached) {
       console.warn(`API call failed for ${key}, using stale cache`);
       return cached.data;
@@ -44,41 +44,24 @@ async function cachedApiCall(key, apiCall) {
   }
 }
 
-// Handle GitHub API rate limits
+// Handle rate limits
 function handleRateLimit(response) {
   const remaining = parseInt(response.headers['x-ratelimit-remaining'] || '0');
-  const resetTime = parseInt(response.headers['x-ratelimit-reset'] || '0') * 1000;
-  
   if (remaining < 10) {
-    console.warn(`Low GitHub API rate limit: ${remaining} remaining, reset at ${new Date(resetTime).toISOString()}`);
+    console.warn(`Low GitHub API rate limit: ${remaining} remaining`);
   }
-  
   return response;
 }
 
-// Enhanced error handling for GitHub API
+// Error handling interceptor
 github.interceptors.response.use(
   response => handleRateLimit(response),
   error => {
-    if (error.response) {
-      const status = error.response.status;
-      
-      if (status === 403 && error.response.headers['x-ratelimit-remaining'] === '0') {
-        console.error('GitHub API rate limit exceeded');
-        throw new Error('RATE_LIMIT_EXCEEDED');
-      } else if (status === 404) {
-        console.error('GitHub API resource not found');
-        throw new Error('RESOURCE_NOT_FOUND');
-      } else if (status >= 500) {
-        console.error('GitHub API server error');
-        throw new Error('SERVER_ERROR');
-      }
-    } else if (error.code === 'ECONNABORTED') {
-      console.error('GitHub API request timeout');
-      throw new Error('REQUEST_TIMEOUT');
+    if (error.response?.status === 403) {
+      console.error('GitHub API rate limit exceeded');
+    } else if (error.response?.status === 404) {
+      console.error('GitHub API resource not found');
     }
-    
-    console.error('GitHub API error:', error.message);
     throw error;
   }
 );
@@ -89,26 +72,21 @@ async function getRecentCommits() {
       github.get(`/users/${USERNAME}/events?per_page=30`)
     );
     
-    console.log('Total events found:', response.data.length);
-
     const pushEvents = response.data.filter(event => event.type === 'PushEvent');
     console.log('Push events found:', pushEvents.length);
 
     if (pushEvents.length === 0) {
       console.log('No recent commits found, using fallback data');
       const fallbackTime = moment().utcOffset(330).format('YYYY-MM-DD hh:mm:ss A');
-      return [
-        `[${fallbackTime}] COMMIT: "No recent activity detected" → profile`,
-      ];
+      return [`[${fallbackTime}] COMMIT: "No recent activity detected" → profile`];
     }
 
-    const recentPushEvents = pushEvents
+    return pushEvents
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 5)
       .map(event => {
         const time = moment(event.created_at).utcOffset(330).format('YYYY-MM-DD hh:mm:ss A');
         const repo = event.repo.name.split('/')[1];
-
         const latestCommit = event.payload.commits[event.payload.commits.length - 1];
         const commitMessage = latestCommit?.message || 'Updated files';
         const truncatedMessage = commitMessage.length > 50 
@@ -117,8 +95,6 @@ async function getRecentCommits() {
 
         return `[${time}] COMMIT: "${truncatedMessage}" → ${repo}`;
       });
-
-    return recentPushEvents;
   } catch (error) {
     console.error('Error fetching commits:', error.message);
     const fallbackTimes = [
@@ -127,7 +103,7 @@ async function getRecentCommits() {
     ];
     
     return fallbackTimes.map(time => 
-      `[${time.format('YYYY-MM-DD hh:mm:ss A')}] COMMIT: "Fallback commit message" → sample-repo`
+      `[${time.format('YYYY-MM-DD hh:mm:ss A')}] COMMIT: "Working on improvements" → profile`
     );
   }
 }
@@ -146,11 +122,9 @@ async function getLastCommitTime() {
       const now = moment().utcOffset(330);
       const diffMinutes = now.diff(lastCommitTime, 'minutes');
 
-      if (diffMinutes < 1) {
-        return 'just now';
-      } else if (diffMinutes < 60) {
-        return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
-      } else if (diffMinutes < 1440) {
+      if (diffMinutes < 1) return 'just now';
+      if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+      if (diffMinutes < 1440) {
         const hours = Math.floor(diffMinutes / 60);
         return `${hours} hour${hours === 1 ? '' : 's'} ago`;
       } else {
@@ -168,7 +142,7 @@ async function getLastCommitTime() {
 async function getLanguageStats() {
   try {
     const reposResponse = await cachedApiCall('user_repos', () => 
-      github.get(`/users/${USERNAME}/repos?per_page=50&sort=updated`)
+      github.get(`/users/${USERNAME}/repos?per_page=30&sort=updated`)
     );
     
     const repos = reposResponse.data.filter(repo => !repo.fork && !repo.archived);
@@ -177,26 +151,21 @@ async function getLanguageStats() {
     const languageStats = {};
     let totalBytes = 0;
 
-    // Process only the most recently updated repositories to save API calls
-    const reposToProcess = repos.slice(0, 15);
-    
-    for (const repo of reposToProcess) {
+    // Process only recent repositories
+    for (const repo of repos.slice(0, 10)) {
       try {
         const langResponse = await cachedApiCall(`repo_langs_${repo.name}`, () => 
           github.get(`/repos/${USERNAME}/${repo.name}/languages`)
         );
         
-        const languages = langResponse.data;
-
-        for (const [lang, bytes] of Object.entries(languages)) {
+        for (const [lang, bytes] of Object.entries(langResponse.data)) {
           languageStats[lang] = (languageStats[lang] || 0) + bytes;
           totalBytes += bytes;
         }
         
-        // Small delay to be respectful of API limits
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 50));
       } catch (err) {
-        console.warn(`Could not fetch languages for ${repo.name}: ${err.message}`);
+        console.warn(`Could not fetch languages for ${repo.name}`);
       }
     }
 
@@ -204,34 +173,30 @@ async function getLanguageStats() {
       return [`│ No Data     │ ░░░░░░░░░░░░░░░░░░░░     │  0.0%   │`];
     }
 
-    const sortedLangs = Object.entries(languageStats)
+    return Object.entries(languageStats)
       .map(([lang, bytes]) => ({
         name: lang,
         percentage: ((bytes / totalBytes) * 100)
       }))
       .sort((a, b) => b.percentage - a.percentage)
-      .slice(0, 5);
+      .slice(0, 5)
+      .map(lang => {
+        const displayPercentage = Math.min(lang.percentage, 99.9);
+        const filled = Math.round(displayPercentage / 5);
+        const empty = Math.max(0, 20 - filled);
+        const bar = '█'.repeat(filled) + '░'.repeat(empty);
+        const barWithSpaces = (bar + '     ').substring(0, 25);
 
-    return sortedLangs.map(lang => {
-      const displayPercentage = Math.min(lang.percentage, 99.9);
-      const filled = Math.round(displayPercentage / 5);
-      const empty = Math.max(0, 20 - filled);
-      const bar = '█'.repeat(filled) + '░'.repeat(empty);
-      const barWithSpaces = (bar + '     ').substring(0, 25);
+        const percentageStr = displayPercentage < 10 
+          ? ` ${displayPercentage.toFixed(1)}%    │`
+          : ` ${displayPercentage.toFixed(1)}%   │`;
 
-      let percentageStr;
-      if (displayPercentage < 10) {
-        percentageStr = ` ${displayPercentage.toFixed(1)}%    │`;
-      } else {
-        percentageStr = ` ${displayPercentage.toFixed(1)}%   │`;
-      }
+        const paddedLangName = lang.name.length > 11 
+          ? lang.name.substring(0, 11) 
+          : lang.name.padEnd(11);
 
-      const paddedLangName = lang.name.length > 11 
-        ? lang.name.substring(0, 11) 
-        : lang.name.padEnd(11);
-
-      return `│ ${paddedLangName} │ ${barWithSpaces}│${percentageStr}`;
-    });
+        return `│ ${paddedLangName} │ ${barWithSpaces}│${percentageStr}`;
+      });
 
   } catch (error) {
     console.error('Error fetching language stats:', error.message);
@@ -241,9 +206,8 @@ async function getLanguageStats() {
 
 async function getCommitHash() {
   try {
-    const response = await cachedApiCall('profile_commit', () => 
-      github.get(`/repos/${USERNAME}/${USERNAME}/commits?per_page=1`)
-    );
+    // Try to get commit from this repository
+    const response = await github.get(`/repos/${USERNAME}/${USERNAME}/commits?per_page=1`);
     
     if (response.data.length > 0) {
       const shortHash = response.data[0].sha.substring(0, 7);
@@ -255,98 +219,24 @@ async function getCommitHash() {
     }
     return 'latest commit';
   } catch (error) {
-    console.error('Error fetching commit hash:', error.message);
+    console.log('Using fallback commit message');
     return 'latest commit';
-  }
-}
-
-async function getRepoStatus() {
-  try {
-    const reposResponse = await cachedApiCall('user_repos_updated', () => 
-      github.get(`/users/${USERNAME}/repos?sort=updated&per_page=8`)
-    );
-    
-    const activeRepos = reposResponse.data
-      .filter(repo => 
-        !repo.fork && 
-        !repo.archived &&
-        moment().diff(moment(repo.updated_at), 'days') < 60 &&
-        repo.name !== USERNAME
-      )
-      .slice(0, 4);
-
-    if (activeRepos.length === 0) {
-      return null;
-    }
-
-    const statusLines = [];
-    
-    for (const repo of activeRepos) {
-      try {
-        const commitsResponse = await cachedApiCall(`repo_commits_${repo.name}`, () => 
-          github.get(`/repos/${USERNAME}/${repo.name}/commits?per_page=2`)
-        );
-        
-        const commits = commitsResponse.data;
-
-        if (commits.length > 0) {
-          statusLines.push(`## ${repo.name}...origin/main`);
-          
-          commits.forEach(commit => {
-            const message = commit.commit.message.split('\n')[0];
-            const truncated = message.length > 40 ? message.substring(0, 40) + '...' : message;
-            const fileStatus = Math.random() > 0.5 ? 'M' : 'A';
-            statusLines.push(` ${fileStatus} ${truncated}`);
-          });
-          
-          statusLines.push('');
-        }
-      } catch (err) {
-        console.warn(`Could not fetch commits for ${repo.name}: ${err.message}`);
-      }
-    }
-
-    return statusLines.length > 0 ? statusLines.join('\n') : null;
-  } catch (error) {
-    console.error('Error fetching repo status:', error.message);
-    return null;
-  }
-}
-
-async function getProfileViews() {
-  try {
-    // This would require a separate service as GitHub doesn't provide this via API
-    // For now, return a placeholder or use a cached value
-    return "1,000+";
-  } catch (error) {
-    return "1,000+";
   }
 }
 
 async function generateReadme() {
   console.log('Starting README generation...');
-  console.log(`Username: ${USERNAME}`);
 
   try {
-    const [recentCommits, lastCommit, languageStats, repoStatus, commitHash, profileViews] = await Promise.all([
+    const [recentCommits, lastCommit, languageStats, commitHash] = await Promise.all([
       getRecentCommits(),
       getLastCommitTime(),
       getLanguageStats(),
-      getRepoStatus(),
-      getCommitHash(),
-      getProfileViews()
+      getCommitHash()
     ]);
 
-    const currentTime = moment().utcOffset(330).format('DD/MM/YYYY, hh:mm:ss a');
-    const formattedLanguageStats = Array.isArray(languageStats) ? languageStats.join('\n') : languageStats;
-
-    const gitStatusSection = repoStatus ? `
-## LIVE REPOSITORY STATUS
-
-\`\`\`bash
-$ git status --porcelain --all-repos
-${repoStatus}
-\`\`\`` : '';
+    const formattedLanguageStats = languageStats.join('\n');
+    const currentTime = moment().utcOffset(330).format('MMMM Do YYYY, h:mm:ss a');
 
     const readmeContent = `# ${USERNAME}@github ~/profile LIVE
 
@@ -368,8 +258,6 @@ $ echo 'initializing dynamic profile shell...'
 | \`> focus:\` AI, Blockchain, Web Development, Cloud Native | \`> last_commit:\` ${lastCommit} |
 | \`> mood:\` compiling chaos into clean output | \`> response_time:\` ~2-4 hours |
 | \`> current_commit:\` ${commitHash} | \`> status:\` online |
-
-${gitStatusSection}
 
 ## REAL-TIME ACTIVITY MONITOR
 
@@ -418,12 +306,6 @@ export COLLABORATION_STATUS="OPEN"
 export MENTORING_AVAILABLE="TRUE"
 export RESPONSE_TIME="2-4_HOURS_IST"
 export PREFERRED_CONTACT="github_issues_or_email"
-
-$ netstat -an | grep LISTEN
-tcp4  0  0  github.com.443         ESTABLISHED
-tcp4  0  0  linkedin.com.443       ESTABLISHED
-tcp4  0  0  gmail.com.443          ESTABLISHED
-tcp4  0  0  localhost.3000         LISTENING
 \`\`\`
 
 ## COLLABORATION HUB
@@ -446,12 +328,6 @@ $ cat << EOF
 │ Contact Method  │ GitHub issues or email                        │
 └─────────────────┴───────────────────────────────────────────────┘
 EOF
-
-$ exit
-> session terminated gracefully
-> last_commit: ${commitHash}
-> status: ready for next connection
-> goodbye!
 \`\`\`
 
 <div align="center" style="font-family: Consolas, 'Courier New', monospace;">
@@ -466,7 +342,7 @@ $ echo "Thanks for visiting! Don't forget to ⭐ star interesting repos!"
 
 ##
 <div align="center">
-<sub>Last updated: ${moment().utcOffset(330).format('MMMM Do YYYY, h:mm:ss a')} IST | Commit: ${commitHash} | Auto-generated every 6 hours</sub>
+<sub>Last updated: ${currentTime} IST | Commit: ${commitHash} | Auto-generated every 6 hours</sub>
 </div>`;
 
     fs.writeFileSync('README.md', readmeContent);
@@ -475,7 +351,7 @@ $ echo "Thanks for visiting! Don't forget to ⭐ star interesting repos!"
   } catch (error) {
     console.error('Failed to generate README:', error);
     
-    // Create a basic fallback README if generation completely fails
+    // Create a basic fallback README
     const fallbackContent = `# ${USERNAME}
 
 > Dynamic profile README - Generation failed at ${new Date().toISOString()}
@@ -488,14 +364,5 @@ Please check the GitHub Actions logs for details.
     console.log('Fallback README created due to generation error');
   }
 }
-
-// Handle uncaught errors
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-});
 
 generateReadme().catch(console.error);

@@ -2,7 +2,7 @@ name: Update Dynamic README
 
 on:
   schedule:
-    - cron: "0 */6 * * *"  # Run every 6 hours instead of weekly
+    - cron: "0 */6 * * *"
   push:
     branches: [main]
   workflow_dispatch:
@@ -23,16 +23,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: 'npm'  # Remove this line to avoid lock file requirement
-          cache-dependency-path: ''  # Clear cache path
+          cache: 'npm'
+          cache-dependency-path: '.github/scripts/package.json'
 
       - name: Install dependencies
         run: |
-          npm init -y --silent
-          npm install axios moment
+          cd .github/scripts
+          npm ci
 
       - name: Generate dynamic README
-        run: node .github/scripts/update-readme.js
+        run: |
+          cd .github/scripts
+          node update-readme.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME: ${{ github.repository_owner }}
