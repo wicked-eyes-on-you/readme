@@ -23,12 +23,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: 'npm'
+          cache: 'npm'  # Remove this line to avoid lock file requirement
+          cache-dependency-path: ''  # Clear cache path
 
       - name: Install dependencies
         run: |
-          npm init -y
-          npm install axios moment dotenv
+          npm init -y --silent
+          npm install axios moment
 
       - name: Generate dynamic README
         run: node .github/scripts/update-readme.js
