@@ -21,9 +21,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Debug - List files
-        run: ls -la
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -33,8 +30,6 @@ jobs:
         run: |
           cd .github/scripts
           npm install
-          echo "Dependencies installed:"
-          ls -la node_modules/
 
       - name: Generate dynamic README
         run: |
@@ -44,18 +39,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME: ${{ github.repository_owner }}
 
-      - name: Debug - Check README content
-        run: |
-          echo "README content:"
-          head -20 README.md
-          echo "---"
-          ls -la README.md
-
       - name: Check if README changed
         id: check_readme
         run: |
-          git status
-          git diff README.md || true
+          echo "Current directory: $(pwd)"
+          echo "Files in current directory:"
+          ls -la
+          echo "---"
+          echo "README.md content:"
+          head -5 README.md
+          echo "---"
           if git diff --quiet README.md; then
             echo "changes=false" >> $GITHUB_OUTPUT
             echo "No changes to README.md"
@@ -75,3 +68,8 @@ jobs:
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clean up node_modules
+        if: always()
+        run: |
+          rm -rf .github/scripts/node_modules .github/scripts/package-lock.json

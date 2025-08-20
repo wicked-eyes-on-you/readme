@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
 const moment = require('moment');
 
@@ -6,8 +7,11 @@ const moment = require('moment');
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const USERNAME = process.env.GITHUB_USERNAME || 'wicked-eyes-on-you';
 
+// Path to the root README.md
+const README_PATH = path.join(__dirname, '..', '..', 'README.md');
+
 console.log('Starting README generation for user:', USERNAME);
-console.log('Current time:', new Date().toISOString());
+console.log('README will be saved to:', README_PATH);
 
 // Configure axios with better error handling
 const github = axios.create({
@@ -360,16 +364,16 @@ $ echo "Thanks for visiting! Don't forget to ⭐ star interesting repos!"
 <sub>Last updated: ${currentTime} IST | Commit: ${commitHash} | Auto-generated every 6 hours</sub>
 </div>`;
 
-    fs.writeFileSync('README.md', readmeContent);
-    console.log('README.md updated successfully!');
+    // Write to the correct location (repository root)
+    fs.writeFileSync(README_PATH, readmeContent);
+    console.log('README.md updated successfully at:', README_PATH);
     
-    // Return true to indicate changes were made
     return true;
     
   } catch (error) {
     console.error('Failed to generate README:', error);
     
-    // Create a basic fallback README
+    // Create a basic fallback README at the correct location
     const fallbackContent = `# ${USERNAME}
 
 > Dynamic profile README - Generation failed at ${new Date().toISOString()}
@@ -378,10 +382,9 @@ Please check the GitHub Actions logs for details.
 
 <!-- Default fallback content -->`;
     
-    fs.writeFileSync('README.md', fallbackContent);
+    fs.writeFileSync(README_PATH, fallbackContent);
     console.log('Fallback README created due to generation error');
     
-    // Return true to indicate changes were made (even if it's a fallback)
     return true;
   }
 }
