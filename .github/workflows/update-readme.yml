@@ -11,6 +11,8 @@ jobs:
   update-readme:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write  # This is crucial for pushing changes
 
     steps:
       - name: Checkout repository
@@ -23,7 +25,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          # No cache configuration to avoid lock file issues
 
       - name: Install dependencies
         run: |
@@ -38,10 +39,22 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME: ${{ github.repository_owner }}
 
-      - name: Commit changes
+      - name: Check if README changed
+        id: check_readme
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          if git diff --quiet README.md; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to README.md"
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
+            echo "README.md has been updated"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_readme.outputs.changes == 'true'
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
           git add README.md
-          git diff --staged --quiet || git commit -m "Auto-update README - $(date +'%Y-%m-%d %H:%M')"
+          git commit -m "Auto-update README - $(date +'%Y-%m-%d %H:%M:%S')"
           git push
