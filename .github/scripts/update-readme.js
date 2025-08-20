@@ -7,6 +7,7 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const USERNAME = process.env.GITHUB_USERNAME || 'wicked-eyes-on-you';
 
 console.log('Starting README generation for user:', USERNAME);
+console.log('Current time:', new Date().toISOString());
 
 // Configure axios with better error handling
 const github = axios.create({
@@ -27,10 +28,12 @@ async function cachedApiCall(key, apiCall) {
   const now = Date.now();
   
   if (cached && (now - cached.timestamp < CACHE_TTL)) {
+    console.log(`Using cached data for: ${key}`);
     return cached.data;
   }
   
   try {
+    console.log(`Making API call for: ${key}`);
     const data = await apiCall();
     cache.set(key, { data, timestamp: now });
     return data;
@@ -39,6 +42,7 @@ async function cachedApiCall(key, apiCall) {
       console.warn(`API call failed for ${key}, using stale cache`);
       return cached.data;
     }
+    console.error(`API call failed for ${key} with no cache available`);
     throw error;
   }
 }
@@ -60,12 +64,13 @@ github.interceptors.response.use(
 
 async function getRecentCommits() {
   try {
+    console.log('Fetching recent commits...');
     const response = await cachedApiCall('user_events', () => 
       github.get(`/users/${USERNAME}/events?per_page=20`)
     );
     
     const pushEvents = response.data.filter(event => event.type === 'PushEvent');
-    console.log('Push events found:', pushEvents.length);
+    console.log(`Found ${pushEvents.length} push events`);
 
     if (pushEvents.length === 0) {
       console.log('No recent commits found, using fallback data');
@@ -73,7 +78,7 @@ async function getRecentCommits() {
       return [`[${fallbackTime}] COMMIT: "No recent activity detected" → profile`];
     }
 
-    return pushEvents
+    const recentCommits = pushEvents
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
       .slice(0, 5)
       .map(event => {
@@ -87,6 +92,10 @@ async function getRecentCommits() {
 
         return `[${time}] COMMIT: "${truncatedMessage}" → ${repo}`;
       });
+    
+    console.log('Processed recent commits:', recentCommits.length);
+    return recentCommits;
+    
   } catch (error) {
     console.error('Error fetching commits:', error.message);
     const fallbackTimes = [
@@ -103,6 +112,7 @@ async function getRecentCommits() {
 
 async function getLastCommitTime() {
   try {
+    console.log('Fetching last commit time...');
     const response = await cachedApiCall('user_events_short', () => 
       github.get(`/users/${USERNAME}/events?per_page=5`)
     );
@@ -134,6 +144,7 @@ async function getLastCommitTime() {
 
 async function getLanguageStats() {
   try {
+    console.log('Fetching language statistics...');
     const reposResponse = await cachedApiCall('user_repos', () => 
       github.get(`/users/${USERNAME}/repos?per_page=20&sort=updated`)
     );
@@ -161,10 +172,11 @@ async function getLanguageStats() {
     }
 
     if (totalBytes === 0) {
+      console.log('No language data found, using fallback');
       return [`│ JavaScript  │ ████████████████████     │ 75.0%   │`];
     }
 
-    return Object.entries(languageStats)
+    const stats = Object.entries(languageStats)
       .map(([lang, bytes]) => ({
         name: lang,
         percentage: ((bytes / totalBytes) * 100)
@@ -188,6 +200,9 @@ async function getLanguageStats() {
 
         return `│ ${paddedLangName} │ ${barWithSpaces}│${percentageStr}`;
       });
+    
+    console.log('Language stats processed');
+    return stats;
 
   } catch (error) {
     console.error('Error fetching language stats:', error.message);
@@ -203,6 +218,7 @@ async function getLanguageStats() {
 
 async function getCommitHash() {
   try {
+    console.log('Fetching commit hash...');
     // Try to get commit from this repository
     const response = await github.get(`/repos/${USERNAME}/${USERNAME}/commits?per_page=1`);
     
@@ -232,6 +248,8 @@ async function generateReadme() {
       getCommitHash()
     ]);
 
+    console.log('All data fetched successfully');
+    
     const formattedLanguageStats = languageStats.join('\n');
     const currentTime = moment().utcOffset(330).format('MMMM Do YYYY, h:mm:ss a');
 
@@ -345,6 +363,9 @@ $ echo "Thanks for visiting! Don't forget to ⭐ star interesting repos!"
     fs.writeFileSync('README.md', readmeContent);
     console.log('README.md updated successfully!');
     
+    // Return true to indicate changes were made
+    return true;
+    
   } catch (error) {
     console.error('Failed to generate README:', error);
     
@@ -359,7 +380,19 @@ Please check the GitHub Actions logs for details.
     
     fs.writeFileSync('README.md', fallbackContent);
     console.log('Fallback README created due to generation error');
+    
+    // Return true to indicate changes were made (even if it's a fallback)
+    return true;
   }
 }
 
-generateReadme().catch(console.error);
+// Run the generation
+generateReadme()
+  .then(changesMade => {
+    console.log(`README generation completed. Changes made: ${changesMade}`);
+    process.exit(0);
+  })
+  .catch(error => {
+    console.error('Unhandled error in README generation:', error);
+    process.exit(1);
+  });
