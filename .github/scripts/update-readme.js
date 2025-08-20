@@ -166,7 +166,7 @@ async function getRepoStatus() {
       .filter(repo => 
         !repo.fork && 
         moment().diff(moment(repo.updated_at), 'days') < 30 &&
-        repo.name !== 'wicked-eyes-on-you'
+        repo.name !== 'readme'
       )
       .slice(0, 5);
 
