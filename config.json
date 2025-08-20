@@ -1,0 +1,205 @@
+{
+  "appearance": {
+    "theme": "terminal",
+    "maxLanguages": 8,
+    "timeFormat": "12h",
+    "showPrivateRepos": false,
+    "progressBarStyle": "modern",
+    "colorScheme": "adaptive"
+  },
+  "features": {
+    "showContributions": true,
+    "showRecentActivity": true,
+    "showLanguageStats": true,
+    "showProjectStatus": true,
+    "showStreaks": true,
+    "showWeeklyStats": true,
+    "showPopularRepos": true,
+    "showBadges": true,
+    "enableAIInsights": true,
+    "enablePerformanceMetrics": true
+  },
+  "social": {
+    "showContactInfo": true,
+    "responseTime": "2-4 hours",
+    "timezone": "IST",
+    "preferredContact": "email",
+    "collaborationStatus": "open",
+    "mentoringAvailable": true
+  },
+  "api": {
+    "maxRetries": 3,
+    "retryDelay": 1000,
+    "requestTimeout": 10000,
+    "cacheEnabled": true,
+    "cacheTTL": 300000,
+    "batchSize": 10,
+    "rateLimitBuffer": 50
+  },
+  "content": {
+    "maxCommitHistory": 30,
+    "maxRecentCommits": 8,
+    "maxActiveRepos": 6,
+    "commitMessageMaxLength": 45,
+    "repoDescriptionMaxLength": 40
+  },
+  "personalInfo": {
+    "name": "wicked-eyes-on-you",
+    "role": "IT Student · Full-Stack Developer · Open Source Contributor",
+    "focusAreas": [
+      "AI/ML",
+      "Blockchain", 
+      "Cloud Native",
+      "Web3",
+      "DevOps"
+    ],
+    "techStack": {
+      "frontend": [
+        "React.js",
+        "Next.js", 
+        "Tailwind CSS",
+        "TypeScript"
+      ],
+      "backend": [
+        "Node.js",
+        "Express.js",
+        "Python",
+        "FastAPI"
+      ],
+      "database": [
+        "MongoDB",
+        "PostgreSQL", 
+        "Redis",
+        "Supabase"
+      ],
+      "cloud": [
+        "AWS",
+        "Vercel",
+        "Docker",
+        "Kubernetes"
+      ],
+      "devops": [
+        "GitHub Actions",
+        "CI/CD",
+        "Monitoring"
+      ],
+      "aiml": [
+        "TensorFlow",
+        "OpenAI API",
+        "Langchain"
+      ],
+      "web3": [
+        "Solidity",
+        "Ethereum",
+        "Smart Contracts"
+      ],
+      "tools": [
+        "VS Code",
+        "Postman",
+        "Figma",
+        "Linear"
+      ]
+    },
+    "socialLinks": {
+      "github": "https://github.com/wicked-eyes-on-you",
+      "linkedin": "https://linkedin.com/in/wicked-eyes-on-you",
+      "website": "https://wicked-eyes-on-you.me",
+      "email": "connect.wicked.eyes.on.you@gmail.com",
+      "portfolio": "https://portfolio.wicked-eyes-on-you.dev",
+      "twitter": "https://x.com/wicked-eyes-on-you",
+      "telegram": "https://t.me/wicked-eyes-on-you",
+      "discord": "wicked-eyes-on-you",
+      "devto": "https://dev.to/wicked-eyes-on-you"
+    }
+  },
+  "languageIcons": {
+    "JavaScript": "🟨",
+    "TypeScript": "🔷",
+    "Python": "🐍",
+    "Java": "☕",
+    "C": "⚡",
+    "C++": "⚙️",
+    "C#": "💜",
+    "Go": "🐹",
+    "Rust": "🦀",
+    "PHP": "🐘",
+    "Ruby": "💎",
+    "Swift": "🍎",
+    "Kotlin": "🎯",
+    "HTML": "🌐",
+    "CSS": "🎨",
+    "SCSS": "🎨",
+    "Shell": "🐚",
+    "Dockerfile": "🐳",
+    "Vue": "💚",
+    "React": "⚛️",
+    "Angular": "🅰️",
+    "Svelte": "🧡",
+    "Dart": "🎯",
+    "R": "📊",
+    "MATLAB": "🧮",
+    "Perl": "🐪",
+    "Lua": "🌙",
+    "Haskell": "λ",
+    "Scala": "🏗️",
+    "Clojure": "🍀"
+  },
+  "themes": {
+    "terminal": {
+      "primary": "🌟",
+      "secondary": "⚡",
+      "accent": "💫",
+      "success": "✅",
+      "warning": "⚠️",
+      "error": "❌",
+      "info": "ℹ️"
+    },
+    "modern": {
+      "primary": "🚀",
+      "secondary": "💎",
+      "accent": "⭐",
+      "success": "✨",
+      "warning": "🔔",
+      "error": "🚨",
+      "info": "📋"
+    },
+    "minimal": {
+      "primary": "•",
+      "secondary": "→",
+      "accent": "★",
+      "success": "✓",
+      "warning": "!",
+      "error": "✗",
+      "info": "i"
+    }
+  },
+  "messages": {
+    "moods": [
+      "Compiling brilliance into clean code",
+      "Building the future, one commit at a time",
+      "Turning coffee into scalable solutions",
+      "Debugging reality with elegant algorithms",
+      "Crafting digital experiences that matter",
+      "Transforming ideas into innovative applications",
+      "Engineering tomorrow's technology today",
+      "Code poet writing the next chapter"
+    ],
+    "commitTypes": {
+      "multiple": "🔥",
+      "few": "💫",
+      "single": "✨"
+    },
+    "activityLevels": {
+      "high": "🔥 High",
+      "medium": "⚡ Medium", 
+      "steady": "💫 Steady",
+      "planning": "🔍 Planning"
+    }
+  },
+  "analytics": {
+    "enableInsights": true,
+    "trackPerformance": true,
+    "generateReports": true,
+    "logLevel": "info"
+  }
+}

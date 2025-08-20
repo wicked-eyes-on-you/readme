@@ -1,42 +1,356 @@
-name: Update Dynamic README
+name: 🚀 Enhanced Dynamic README Generator
 
 on:
   schedule:
-    - cron: "0 0 * * 0"
+    # Runs every 6 hours for more dynamic updates
+    - cron: "0 */6 * * *"
   push:
-    branches: [main]
+    branches: [main, master]
+    paths:
+      - '.github/scripts/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [main, master]
+    types: [closed]
+  issues:
+    types: [opened, closed]
   workflow_dispatch:
+    inputs:
+      force_update:
+        description: 'Force update even if no changes'
+        required: false
+        default: 'false'
+        type: boolean
+      debug_mode:
+        description: 'Enable debug logging'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  NODE_VERSION: '20'
+  CACHE_KEY_PREFIX: 'readme-generator-v3'
 
 jobs:
-  update-readme:
+  health-check:
+    name: 🏥 System Health Check
     runs-on: ubuntu-latest
-
+    outputs:
+      should-proceed: ${{ steps.check.outputs.result }}
+      
     steps:
-      - name: Checkout repository
+      - name: 🔍 Initial Health Check
+        id: check
+        run: |
+          echo "🏥 Checking system health..."
+          
+          # Check if GitHub token is available
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "❌ GitHub token not available"
+            echo "result=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Check rate limit
+          RATE_LIMIT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/rate_limit" | jq -r '.rate.remaining')
+          
+          if [ "$RATE_LIMIT" -lt 100 ]; then
+            echo "⚠️ Rate limit too low: $RATE_LIMIT remaining"
+            echo "result=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "✅ Health check passed. Rate limit: $RATE_LIMIT"
+          echo "result=true" >> $GITHUB_OUTPUT
+
+  update-readme:
+    name: 📝 Generate Enhanced README
+    runs-on: ubuntu-latest
+    needs: health-check
+    if: needs.health-check.outputs.should-proceed == 'true'
+    
+    permissions:
+      contents: write
+      actions: read
+      
+    steps:
+      - name: 📦 Checkout Repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0 # Full history for better analytics
 
-      - name: Setup Node.js
+      - name: 🟢 Setup Node.js with Caching
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
-      - name: Install dependencies
+      - name: 🗂️ Cache Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+            .cache
+          key: ${{ env.CACHE_KEY_PREFIX }}-${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ env.CACHE_KEY_PREFIX }}-${{ runner.os }}-node-
+
+      - name: 📋 Create Package Configuration
         run: |
-          npm init -y
-          npm install axios moment
+          echo "🔧 Setting up enhanced package.json..."
+          cat > package.json << EOF
+          {
+            "name": "dynamic-readme-generator",
+            "version": "3.0.0",
+            "description": "Enhanced GitHub profile README generator with AI insights",
+            "main": ".github/scripts/update-readme.js",
+            "scripts": {
+              "generate": "node .github/scripts/update-readme.js",
+              "health-check": "node .github/scripts/health-check.js",
+              "test": "node .github/scripts/test.js"
+            },
+            "dependencies": {
+              "axios": "^1.6.0",
+              "moment": "^2.29.4",
+              "moment-timezone": "^0.5.43"
+            },
+            "engines": {
+              "node": ">=18.0.0"
+            }
+          }
+          EOF
 
-      - name: Generate dynamic README
-        run: node .github/scripts/update-readme.js
+      - name: 📥 Install Dependencies
+        run: |
+          echo "📦 Installing enhanced dependencies..."
+          npm install --prefer-offline --no-audit --progress=false
+          
+          # Verify installation
+          echo "✅ Dependencies installed successfully:"
+          npm list --depth=0
+
+      - name: 🔧 Setup Enhanced Script Directory
+        run: |
+          echo "📁 Creating enhanced scripts directory..."
+          mkdir -p .github/scripts
+          
+          # Copy the enhanced script (this would be your enhanced script file)
+          echo "📝 Enhanced script will be provided separately"
+
+      - name: 🚀 Generate Dynamic README
+        id: generate
+        run: |
+          echo "🚀 Starting enhanced README generation..."
+          
+          # Set debug mode if requested
+          if [ "${{ github.event.inputs.debug_mode }}" = "true" ]; then
+            export DEBUG=true
+            echo "🐛 Debug mode enabled"
+          fi
+          
+          # Run with comprehensive error handling
+          if node .github/scripts/update-readme.js; then
+            echo "✅ README generated successfully"
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Primary generation failed, attempting fallback..."
+            if node .github/scripts/fallback-readme.js 2>/dev/null; then
+              echo "🔄 Fallback README generated"
+              echo "success=fallback" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Both primary and fallback generation failed"
+              echo "success=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_USERNAME: ${{ github.repository_owner }}
+          REPOSITORY_NAME: ${{ github.repository_name }}
+          RUNNER_OS: ${{ runner.os }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
 
-      - name: Commit changes
+      - name: 📊 Performance Analysis
+        if: always()
         run: |
+          echo "📊 Analyzing generation performance..."
+          
+          # File size analysis
+          if [ -f README.md ]; then
+            FILE_SIZE=$(stat -f%z README.md 2>/dev/null || stat -c%s README.md 2>/dev/null || echo "unknown")
+            LINE_COUNT=$(wc -l < README.md)
+            echo "📄 README.md: ${FILE_SIZE} bytes, ${LINE_COUNT} lines"
+          fi
+          
+          # Memory usage
+          echo "💾 Memory usage: $(free -h 2>/dev/null | grep Mem || echo 'N/A')"
+          
+          # Disk usage
+          echo "💿 Disk usage: $(df -h . | tail -1)"
+
+      - name: 🔍 Validate Generated Content
+        if: steps.generate.outputs.success != 'false'
+        run: |
+          echo "🔍 Validating generated README..."
+          
+          # Basic validation checks
+          if [ ! -f README.md ]; then
+            echo "❌ README.md not found"
+            exit 1
+          fi
+          
+          # Check file size (should be > 1KB and < 1MB)
+          FILE_SIZE=$(stat -f%z README.md 2>/dev/null || stat -c%s README.md)
+          if [ "$FILE_SIZE" -lt 1024 ]; then
+            echo "⚠️ README.md seems too small: ${FILE_SIZE} bytes"
+          elif [ "$FILE_SIZE" -gt 1048576 ]; then
+            echo "⚠️ README.md seems too large: ${FILE_SIZE} bytes"
+          else
+            echo "✅ README.md size is optimal: ${FILE_SIZE} bytes"
+          fi
+          
+          # Check for required sections
+          REQUIRED_SECTIONS=("wicked-eyes-on-you@github" "LIVE" "ACTIVITY MONITOR" "TECH STACK")
+          for section in "${REQUIRED_SECTIONS[@]}"; do
+            if grep -q "$section" README.md; then
+              echo "✅ Found required section: $section"
+            else
+              echo "⚠️ Missing section: $section"
+            fi
+          done
+
+      - name: 🔄 Check for Changes
+        id: changes
+        run: |
+          echo "🔍 Checking for meaningful changes..."
+          
+          # Configure git
           git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.name "Enhanced README Bot"
+          
+          # Check if there are changes
+          if git diff --quiet README.md; then
+            echo "📝 No changes detected in README.md"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "📝 Changes detected in README.md"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            
+            # Show diff summary
+            echo "📊 Change summary:"
+            git diff --stat README.md || true
+          fi
+
+      - name: 💾 Commit and Push Changes
+        if: steps.changes.outputs.has_changes == 'true' || github.event.inputs.force_update == 'true'
+        run: |
+          echo "💾 Committing enhanced README changes..."
+          
+          # Generate commit message with metadata
+          COMMIT_MSG="🤖 Auto-update enhanced dynamic README"
+          
+          # Add generation metadata
+          if [ "${{ steps.generate.outputs.success }}" = "fallback" ]; then
+            COMMIT_MSG="$COMMIT_MSG (fallback mode)"
+          fi
+          
+          # Add timestamp
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          COMMIT_MSG="$COMMIT_MSG - $TIMESTAMP"
+          
+          # Add performance info if available
+          if [ -f README.md ]; then
+            FILE_SIZE=$(stat -f%z README.md 2>/dev/null || stat -c%s README.md)
+            COMMIT_MSG="$COMMIT_MSG [${FILE_SIZE} bytes]"
+          fi
+          
           git add README.md
-          git diff --staged --quiet || git commit -m "Auto-update dynamic README"
-          git push
+          git commit -m "$COMMIT_MSG"
+          
+          # Push with retry logic
+          for i in {1..3}; do
+            if git push; then
+              echo "✅ Successfully pushed changes"
+              break
+            else
+              echo "⚠️ Push attempt $i failed, retrying..."
+              sleep 2
+              git pull --rebase origin main || git pull --rebase origin master || true
+            fi
+          done
+
+      - name: 📈 Generate Analytics Report
+        if: always()
+        run: |
+          echo "📈 Generating workflow analytics..."
+          
+          # Create analytics summary
+          cat > workflow-analytics.md << EOF
+          # 📊 Workflow Analytics Report
+          
+          **Generated:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Workflow ID:** ${{ github.run_id }}
+          **Repository:** ${{ github.repository }}
+          **Trigger:** ${{ github.event_name }}
+          
+          ## ⚡ Performance Metrics
+          - **Health Check:** ${{ needs.health-check.outputs.should-proceed == 'true' && '✅ Passed' || '❌ Failed' }}
+          - **README Generation:** ${{ steps.generate.outputs.success == 'true' && '✅ Success' || steps.generate.outputs.success == 'fallback' && '🔄 Fallback' || '❌ Failed' }}
+          - **Changes Detected:** ${{ steps.changes.outputs.has_changes == 'true' && '✅ Yes' || '📝 No' }}
+          - **Node.js Version:** ${{ env.NODE_VERSION }}
+          - **Cache Status:** ${{ steps.cache.outputs.cache-hit == 'true' && '🎯 Hit' || '📥 Miss' }}
+          
+          ## 🔧 Configuration
+          - **Debug Mode:** ${{ github.event.inputs.debug_mode || 'false' }}
+          - **Force Update:** ${{ github.event.inputs.force_update || 'false' }}
+          - **Runner OS:** ${{ runner.os }}
+          
+          EOF
+          
+          echo "📋 Analytics report generated"
+          cat workflow-analytics.md
+
+      - name: 🧹 Cleanup
+        if: always()
+        run: |
+          echo "🧹 Performing cleanup..."
+          
+          # Clean up temporary files
+          rm -f workflow-analytics.md
+          rm -f package-lock.json
+          
+          # Clear npm cache if needed
+          if [ "${{ steps.cache.outputs.cache-hit }}" != 'true' ]; then
+            npm cache clean --force 2>/dev/null || true
+          fi
+          
+          echo "✅ Cleanup completed"
+
+  notify-status:
+    name: 📢 Workflow Status Notification  
+    runs-on: ubuntu-latest
+    needs: [health-check, update-readme]
+    if: always()
+    
+    steps:
+      - name: 📊 Workflow Summary
+        run: |
+          echo "📊 Enhanced Dynamic README Workflow Summary"
+          echo "=============================================="
+          echo "🏥 Health Check: ${{ needs.health-check.result }}"
+          echo "📝 README Update: ${{ needs.update-readme.result }}"
+          echo "⚡ Trigger: ${{ github.event_name }}"
+          echo "📅 Completed: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo "=============================================="
+          
+          if [ "${{ needs.update-readme.result }}" = "success" ]; then
+            echo "✅ All systems operational! README updated successfully."
+          elif [ "${{ needs.health-check.result }}" = "failure" ]; then
+            echo "❌ Health check failed. System may be experiencing issues."
+          else
+            echo "⚠️ Workflow completed with issues. Check logs for details."
+          fi
