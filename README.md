@@ -13,7 +13,7 @@ $ echo 'initializing dynamic profile shell...'
 
 | WHO AM I | LIVE STATUS |
 |----------|-------------|
-| `> user:` wicked-eyes-on-you | `> last_updated:` 06/09/2025, 11:57:54 |
+| `> user:` wicked-eyes-on-you | `> last_updated:` 06/09/2025, 18:07:05 |
 | `> role:` IT student · builder · open source contributor | `> timezone:` IST (GMT+5:30) |
 | `> focus:` AI, Blockchain, Web Development, Cloud Native | `> last_commit:` 18 days ago |
 | `> mood:` compiling chaos into clean output | `> response_time:` ~2-4 hours |
@@ -110,5 +110,5 @@ $ echo "Thanks for visiting! Don't forget to ⭐ star interesting repos!"
 
 ##
 <div align="center">
-<sub>Last updated: September 6th 2025, 11:57:54 am IST | Commit: latest commit | Auto-generated every 6 hours</sub>
+<sub>Last updated: September 6th 2025, 6:07:05 pm IST | Commit: latest commit | Auto-generated every 6 hours</sub>
 </div>
