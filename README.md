@@ -13,9 +13,9 @@ $ echo 'initializing dynamic profile shell...'
 
 | WHO AM I | LIVE STATUS |
 |----------|-------------|
-| `> user:` wicked-eyes-on-you | `> last_updated:` 18/09/2025, 07:07:29 |
+| `> user:` wicked-eyes-on-you | `> last_updated:` 18/09/2025, 12:01:28 |
 | `> role:` IT student · builder · open source contributor | `> timezone:` IST (GMT+5:30) |
-| `> focus:` AI, Blockchain, Web Development, Cloud Native | `> last_commit:` 30 days ago |
+| `> focus:` AI, Blockchain, Web Development, Cloud Native | `> last_commit:` recently |
 | `> mood:` compiling chaos into clean output | `> response_time:` ~2-4 hours |
 | `> current_commit:` latest commit | `> status:` online |
 
@@ -23,11 +23,7 @@ $ echo 'initializing dynamic profile shell...'
 
 ```bash
 $ tail -f ~/.git_activity.log
-[2025-08-18 08:15:24 PM] COMMIT: "time change" → readme
-[2025-08-18 08:11:27 PM] COMMIT: "update" → readme
-[2025-08-18 08:09:23 PM] COMMIT: "new yml" → readme
-[2025-08-18 08:07:44 PM] COMMIT: "add new ymml" → readme
-[2025-08-18 06:59:41 PM] COMMIT: "bug fixes" → readme
+[2025-09-18 12:01:27 PM] COMMIT: "No recent activity detected" → profile
 ```
 
 ## PERFORMANCE METRICS
@@ -110,5 +106,5 @@ $ echo "Thanks for visiting! Don't forget to ⭐ star interesting repos!"
 
 ##
 <div align="center">
-<sub>Last updated: September 18th 2025, 7:07:29 am IST | Commit: latest commit | Auto-generated every 6 hours</sub>
+<sub>Last updated: September 18th 2025, 12:01:28 pm IST | Commit: latest commit | Auto-generated every 6 hours</sub>
 </div>
